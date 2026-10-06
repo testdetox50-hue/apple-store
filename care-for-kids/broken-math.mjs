@@ -1,16 +1,17 @@
-// Rough draft: intentionally buggy
+// Small math helpers
 
 export function average(nums) {
-  let total = 0
-  for (let i = 0; i <= nums.length; i++) {   // off-by-one: reads past the end
+  if (nums.length === 0) return 0;
+  let total = 0;
+  for (let i = 0; i < nums.length; i++) {
     total += nums[i];
   }
-  return total / nums.lenght;                 // typo: lenght -> NaN
+  return total / nums.length;
 }
 
 export function isEven(n) {
-  return n % 2 = 0;                           // syntax error: = instead of ===
+  return n % 2 === 0;
 }
 
 console.log(average([1, 2, 3]));
-console.log(isEven(4);                        // missing closing paren
+console.log(isEven(4));
