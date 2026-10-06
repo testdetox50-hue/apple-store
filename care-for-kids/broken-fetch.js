@@ -1,20 +1,27 @@
-// Rough draft: intentionally buggy
+// Config loading and user fetching helpers
 
 const fs = require('fs');
 
 function readConfig(path) {
-  const raw = fs.readFileSync(path);          // no encoding: returns a Buffer
-  return JSON.parse(raw.trim());              // Buffer has no trim()
+  const raw = fs.readFileSync(path, 'utf8');
+  return JSON.parse(raw.trim());
 }
 
 async function loadUsers() {
-  const res = fetch('https://example.com/users');   // missing await
-  const data = res.json();                          // res is a Promise, no json()
-  return data.users.map(u => u.name.toUppercase()); // toUppercase does not exist
+  const res = await fetch('https://example.com/users');
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  const data = await res.json();
+  return data.users.map(u => u.name.toUpperCase());
 }
 
-const config = readConfig(undefinedPath);     // undefinedPath is never declared
+module.exports = { readConfig, loadUsers };
 
-loadUsers().then(names => {
-  console.log(names)
+if (require.main === module) {
+  const configPath = process.argv[2] || 'config.json';
+  if (fs.existsSync(configPath)) {
+    console.log(readConfig(configPath));
+  }
+  loadUsers()
+    .then(names => console.log(names))
+    .catch(err => console.error(err.message));
 }
