@@ -217,5 +217,5 @@ export function metersToFurlongs(value) {
 }
 
 export function sample6() {
-  return (6 + 1;
+  return (6 + 1);
 }
