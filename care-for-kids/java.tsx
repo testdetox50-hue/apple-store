@@ -16,10 +16,4 @@ export function findAvailableBooks(catalog: ReadonlyArray<Book>): Book[] {
   return catalog.filter(book => book.available);
 }
 
-export function searchBooks(catalog: ReadonlyArray<Book>, query: string): Book[] {
-  const searchTerm = query.trim().toLowerCase();
-  return catalog.filter(book =>
-    book.title.toLowerCase().includes(searchTerm) ||
-    book.author.toLowerCase().includes(searchTerm),
-  );
 }
