@@ -1,6 +1,5 @@
 """Standalone Python example, unrelated to the JavaScript website."""
 
-
 def fibonacci(count):
     """Return the first count Fibonacci numbers."""
     numbers = []
