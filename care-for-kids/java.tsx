@@ -16,4 +16,7 @@ export function findAvailableBooks(catalog: ReadonlyArray<Book>): Book[] {
   return catalog.filter(book => book.available);
 }
 
+export function findAvailableBooks(catalog: ReadonlyArray<Book>): Book[] {
+  return catalog.filter(book => book.available);
 }
+
