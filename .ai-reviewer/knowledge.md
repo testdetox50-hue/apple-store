@@ -2,30 +2,30 @@
 
 ## Architecture
 
-This is a small full-stack Todo application: `backend/main.py` provides a FastAPI REST API, while `frontend/src/App.jsx` contains the React UI. The frontend uses Vite (`frontend/vite.config.js`) and calls relative `/api/todos` URLs, which are proxied to the backend during development. Backend state is process-local and stored in an in-memory dictionary.
+A small full-stack Todo application with a FastAPI backend and Vite/React frontend. The backend exposes REST endpoints under `/api`, stores todos in process memory, and serves Pydantic-validated models; the frontend calls those endpoints through a shared fetch wrapper and manages UI state in `App.jsx`. Vite proxies `/api` to the local backend during development (`frontend/vite.config.js`).
 
 ## Conventions
 
-- Backend routes are mounted under `/api/todos` and use conventional REST methods: `GET`, `POST`, `PATCH`, and `DELETE` (`backend/main.py`, `README.md`).
-- Request and response schemas are defined with Pydantic models (`TodoCreate`, `TodoUpdate`, and `Todo`) in `backend/main.py`; route decorators declare response models and status codes.
-- Todo IDs are generated monotonically with `itertools.count`, and the store is keyed by integer ID (`backend/main.py`).
-- Create and update operations trim titles. Empty create titles return HTTP 400; an empty update title leaves the existing title unchanged (`backend/main.py`).
-- Missing todo IDs consistently raise `HTTPException` with status 404 and `"Todo not found"` (`backend/main.py`).
-- The frontend centralizes fetch behavior in the local `request()` helper, including JSON headers, error extraction from `detail`, and special handling for HTTP 204 (`frontend/src/App.jsx`).
-- React state updates use functional setters when based on prior state, such as adding, replacing, and filtering todos (`frontend/src/App.jsx`).
-- The UI uses controlled inputs, stable todo IDs as React keys, and accessible labels/aria labels (`frontend/src/App.jsx`).
-- Frontend source is colocated under `frontend/src`; the entry point renders `App` in `React.StrictMode` and imports component styles (`frontend/src/main.jsx`).
+- Backend configuration belongs in `backend/config.py`; environment-driven settings use `os.getenv`, as with `ALLOWED_ORIGINS`, while shared limits such as `MAX_TITLE_LENGTH` are constants.
+- API request and response shapes are represented with Pydantic models in `backend/main.py` (`TodoCreate`, `TodoUpdate`, and `Todo`), and route handlers declare response models where applicable.
+- REST resources use `/api/todos`; collection operations are `GET`/`POST`, item updates use `PATCH`, and deletion returns HTTP 204. Missing items explicitly raise `HTTPException` with 404.
+- Todo creation strips whitespace and validates non-empty and maximum-length titles in `backend/main.py`; preserve these checks when adding creation paths.
+- Frontend API access is centralized in `frontend/src/api.js`; components should use its `listTodos`, `createTodo`, `updateTodo`, and `deleteTodo` helpers rather than calling `fetch` directly.
+- React state updates use functional setters for potentially stale collections, e.g. `setTodos((prev) => ...)` in `frontend/src/App.jsx`.
+- `App.jsx` owns collection state and request error display; `TodoItem.jsx` is a presentational child receiving `todo`, `onToggle`, and `onDelete` callbacks.
+- Backend tests use `fastapi.testclient.TestClient` against `main.app`, clear the shared `main.todos` store with an autouse fixture, and assert HTTP status plus JSON behavior (`backend/test_main.py`).
 
 ## Intentional non-standard choices
 
-- Persistence is intentionally absent: `todos` and `_ids` in `backend/main.py` reset whenever the server restarts, as documented in the README.
-- Development CORS permits all methods and headers but restricts origins to `http://localhost:5173` (`backend/main.py`); the Vite proxy handles normal local browser requests.
-- Updating a title to whitespace does not reject the request or clear the title; it preserves the prior title (`backend/main.py`).
+- Persistence is intentionally in-memory: `todos` and the ID counter in `backend/main.py` reset with the server process. Do not flag the lack of a database unless persistence is explicitly being requested.
+- The frontend computes the remaining count locally (`frontend/src/App.jsx`) even though `/api/stats` exists; the stats endpoint is part of the API but is not currently required for rendering.
+- Empty or whitespace-only titles are ignored client-side, while the backend remains authoritative and returns 400 for invalid creation input.
+- On PATCH, a blank `title` preserves the existing title (`backend/main.py`); this is intentional partial-update behavior rather than a validation omission.
 
 ## Watch out for
 
-- Do not introduce absolute frontend API URLs or bypass the `/api` prefix; this would break the Vite proxy convention (`frontend/src/App.jsx`, `frontend/vite.config.js`).
-- Preserve the 204 delete response handling. Attempting to parse JSON for successful deletes will fail (`frontend/src/App.jsx`).
-- New backend routes should retain explicit response models, status codes, and 404 handling consistent with `backend/main.py`.
-- Avoid assuming todo ordering or persistence beyond the current process; the implementation currently returns dictionary insertion order and has no database.
-- Changes to CORS origins must remain aligned with the frontend development origin unless deployment configuration is added (`backend/main.py`).
+- Do not bypass `frontend/src/api.js` error handling; it extracts FastAPI’s `detail` field and handles 204 responses specially.
+- Preserve the 200-character title limit and trimming behavior consistently for new or modified endpoints.
+- Avoid assuming IDs restart during tests: `clear_todos` empties the store but does not reset the module-level `itertools.count`.
+- Changes to the in-memory store are process-local and unsuitable for multi-worker deployment; flag code that relies on cross-process consistency.
+- Keep CORS origins configurable through `ALLOWED_ORIGINS`; do not replace the restricted default with a wildcard without an explicit security reason.
