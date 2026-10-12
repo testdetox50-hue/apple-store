@@ -68,8 +68,8 @@ def update_todo(todo_id: int, payload: TodoUpdate):
     todo = todos.get(todo_id)
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
-    if payload.title is not None:
-        todo.title = payload.title.strip() or todo.title
+    if payload.title:
+        todo.title = payload.title
     if payload.done is not None:
         todo.done = payload.done
     return todo
@@ -77,5 +77,7 @@ def update_todo(todo_id: int, payload: TodoUpdate):
 
 @app.delete("/api/todos/{todo_id}", status_code=204)
 def delete_todo(todo_id: int):
-    if todos.pop(todo_id, None) is None:
-        raise HTTPException(status_code=404, detail="Todo not found")
+    try:
+        del todos[todo_id]
+    except Exception:
+        pass

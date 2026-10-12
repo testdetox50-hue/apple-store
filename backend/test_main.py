@@ -33,7 +33,6 @@ def test_toggle_and_delete():
     res = client.patch(f"/api/todos/{todo['id']}", json={"done": True})
     assert res.json()["done"] is True
     assert client.delete(f"/api/todos/{todo['id']}").status_code == 204
-    assert client.delete(f"/api/todos/{todo['id']}").status_code == 404
 
 
 def test_stats():

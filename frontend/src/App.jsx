@@ -27,7 +27,7 @@ export default function App() {
   async function toggleTodo(todo) {
     try {
       const updated = await api.updateTodo(todo.id, { done: !todo.done });
-      setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setTodos(todos.map((t) => (t.id === updated.id ? updated : t)));
     } catch (e) {
       setError(e.message);
     }
@@ -61,9 +61,9 @@ export default function App() {
       {error && <p className="error">{error}</p>}
 
       <ul className="todo-list">
-        {todos.map((todo) => (
+        {todos.map((todo, index) => (
           <TodoItem
-            key={todo.id}
+            key={index}
             todo={todo}
             onToggle={toggleTodo}
             onDelete={deleteTodo}
