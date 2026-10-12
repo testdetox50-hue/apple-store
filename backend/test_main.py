@@ -36,6 +36,14 @@ def test_toggle_and_delete():
     assert client.delete(f"/api/todos/{todo['id']}").status_code == 404
 
 
+def test_update_title_is_validated():
+    todo = client.post("/api/todos", json={"title": "Walk dog"}).json()
+    url = f"/api/todos/{todo['id']}"
+    assert client.patch(url, json={"title": "   "}).status_code == 400
+    assert client.patch(url, json={"title": "x" * 201}).status_code == 400
+    assert client.patch(url, json={"title": "  Feed cat  "}).json()["title"] == "Feed cat"
+
+
 def test_stats():
     client.post("/api/todos", json={"title": "a"})
     todo = client.post("/api/todos", json={"title": "b"}).json()

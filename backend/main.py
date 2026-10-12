@@ -48,9 +48,8 @@ def get_stats():
     return {"total": len(todos), "done": done, "remaining": len(todos) - done}
 
 
-@app.post("/api/todos", response_model=Todo, status_code=201)
-def create_todo(payload: TodoCreate):
-    title = payload.title.strip()
+def clean_title(raw: str) -> str:
+    title = raw.strip()
     if not title:
         raise HTTPException(status_code=400, detail="Title cannot be empty")
     if len(title) > MAX_TITLE_LENGTH:
@@ -58,7 +57,12 @@ def create_todo(payload: TodoCreate):
             status_code=400,
             detail=f"Title must be at most {MAX_TITLE_LENGTH} characters",
         )
-    todo = Todo(id=next(_ids), title=title)
+    return title
+
+
+@app.post("/api/todos", response_model=Todo, status_code=201)
+def create_todo(payload: TodoCreate):
+    todo = Todo(id=next(_ids), title=clean_title(payload.title))
     todos[todo.id] = todo
     return todo
 
@@ -69,7 +73,7 @@ def update_todo(todo_id: int, payload: TodoUpdate):
     if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
     if payload.title is not None:
-        todo.title = payload.title.strip() or todo.title
+        todo.title = clean_title(payload.title)
     if payload.done is not None:
         todo.done = payload.done
     return todo
