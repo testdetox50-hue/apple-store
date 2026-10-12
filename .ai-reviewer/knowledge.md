@@ -1,31 +1,26 @@
 # apple-store reviewer notes
 
 ## Architecture
-
-A small full-stack Todo application with a FastAPI backend and Vite/React frontend. The backend exposes REST endpoints under `/api`, stores todos in process memory, and serves Pydantic-validated models; the frontend calls those endpoints through a shared fetch wrapper and manages UI state in `App.jsx`. Vite proxies `/api` to the local backend during development (`frontend/vite.config.js`).
+This is a small full-stack Todo application with a FastAPI backend and a Vite/React frontend. The backend exposes `/api/todos` CRUD endpoints plus `/api/stats`, storing todos in process memory; the frontend calls relative `/api` URLs and relies on Vite’s development proxy. Backend tests use FastAPI’s `TestClient` and pytest.
 
 ## Conventions
-
-- Backend configuration belongs in `backend/config.py`; environment-driven settings use `os.getenv`, as with `ALLOWED_ORIGINS`, while shared limits such as `MAX_TITLE_LENGTH` are constants.
-- API request and response shapes are represented with Pydantic models in `backend/main.py` (`TodoCreate`, `TodoUpdate`, and `Todo`), and route handlers declare response models where applicable.
-- REST resources use `/api/todos`; collection operations are `GET`/`POST`, item updates use `PATCH`, and deletion returns HTTP 204. Missing items explicitly raise `HTTPException` with 404.
-- Todo creation strips whitespace and validates non-empty and maximum-length titles in `backend/main.py`; preserve these checks when adding creation paths.
-- Frontend API access is centralized in `frontend/src/api.js`; components should use its `listTodos`, `createTodo`, `updateTodo`, and `deleteTodo` helpers rather than calling `fetch` directly.
-- React state updates use functional setters for potentially stale collections, e.g. `setTodos((prev) => ...)` in `frontend/src/App.jsx`.
-- `App.jsx` owns collection state and request error display; `TodoItem.jsx` is a presentational child receiving `todo`, `onToggle`, and `onDelete` callbacks.
-- Backend tests use `fastapi.testclient.TestClient` against `main.app`, clear the shared `main.todos` store with an autouse fixture, and assert HTTP status plus JSON behavior (`backend/test_main.py`).
+- Backend API models are defined as Pydantic classes in `backend/main.py`: `TodoCreate`, `TodoUpdate`, and `Todo`; response models are declared directly on route decorators.
+- Todo titles are normalized and validated through the shared `clean_title()` helper in `backend/main.py`: whitespace is stripped, empty values return HTTP 400, and length is limited by `MAX_TITLE_LENGTH` from `backend/config.py`.
+- Missing resources consistently raise `HTTPException(status_code=404, detail="Todo not found")` in update and delete handlers.
+- API routes use the `/api` prefix (`backend/main.py`), and frontend API access is centralized in `frontend/src/api.js` rather than calling `fetch` from components.
+- React state updates are immutable and functional where needed, for example `setTodos((prev) => prev.map(...))` and filtering in `frontend/src/App.jsx`.
+- Components use `.jsx` files and default exports (`frontend/src/App.jsx`, `frontend/src/TodoItem.jsx`); application bootstrap and `React.StrictMode` are in `frontend/src/main.jsx`.
+- Frontend errors are surfaced from API failures through the shared `request()` helper and displayed by `App` as `<p className="error">`.
+- Tests clear the shared todo dictionary before each test via the autouse fixture in `backend/test_main.py`; validation behavior is tested for both creation and updates.
 
 ## Intentional non-standard choices
-
-- Persistence is intentionally in-memory: `todos` and the ID counter in `backend/main.py` reset with the server process. Do not flag the lack of a database unless persistence is explicitly being requested.
-- The frontend computes the remaining count locally (`frontend/src/App.jsx`) even though `/api/stats` exists; the stats endpoint is part of the API but is not currently required for rendering.
-- Empty or whitespace-only titles are ignored client-side, while the backend remains authoritative and returns 400 for invalid creation input.
-- On PATCH, a blank `title` preserves the existing title (`backend/main.py`); this is intentional partial-update behavior rather than a validation omission.
+- Persistence is deliberately in-memory: `todos` and the ID counter live in `backend/main.py`, and all data resets when the server restarts.
+- The frontend calculates the remaining count locally in `frontend/src/App.jsx` instead of consuming the backend’s `/api/stats` endpoint.
+- `frontend/src/api.js` always sends `Content-Type: application/json`, including requests such as DELETE that have no body; this is part of the shared request wrapper.
 
 ## Watch out for
-
-- Do not bypass `frontend/src/api.js` error handling; it extracts FastAPI’s `detail` field and handles 204 responses specially.
-- Preserve the 200-character title limit and trimming behavior consistently for new or modified endpoints.
-- Avoid assuming IDs restart during tests: `clear_todos` empties the store but does not reset the module-level `itertools.count`.
-- Changes to the in-memory store are process-local and unsuitable for multi-worker deployment; flag code that relies on cross-process consistency.
-- Keep CORS origins configurable through `ALLOWED_ORIGINS`; do not replace the restricted default with a wildcard without an explicit security reason.
+- Do not introduce frontend calls to `http://localhost:8000` directly; use relative `/api` paths so the Vite proxy and deployed routing remain usable (`frontend/src/api.js`, `frontend/vite.config.js`).
+- Preserve title cleaning on both POST and PATCH. Bypassing `clean_title()` would make create/update validation inconsistent (`backend/main.py`).
+- Avoid mutating React arrays or todo objects in place; existing handlers replace arrays using `map`, `filter`, and spread operations (`frontend/src/App.jsx`).
+- Changes to the in-memory store must account for process restarts and test isolation. Tests clear `main.todos`, but they do not reset `_ids` (`backend/test_main.py`).
+- Keep CORS origins configurable through `ALLOWED_ORIGINS` (`backend/config.py`) rather than hard-coding additional production origins in `backend/main.py`.
