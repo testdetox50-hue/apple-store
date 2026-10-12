@@ -31,6 +31,12 @@ npm run dev
 
 Open http://localhost:5173. The Vite dev server forwards `/api` requests to the backend.
 
+### Tests
+
+```bash
+cd backend && .venv/bin/python -m pytest
+```
+
 ## API
 
 | Method | Path              | Body                              |
@@ -39,3 +45,4 @@ Open http://localhost:5173. The Vite dev server forwards `/api` requests to the 
 | POST   | `/api/todos`      | `{ "title": "Buy milk" }`         |
 | PATCH  | `/api/todos/{id}` | `{ "title"?: str, "done"?: bool }` |
 | DELETE | `/api/todos/{id}` | none                              |
+| GET    | `/api/stats`      | none (returns total/done/remaining) |
