@@ -27,7 +27,7 @@ export default function App() {
   async function toggleTodo(todo) {
     try {
       const updated = await api.updateTodo(todo.id, { done: !todo.done });
-      setTodos(todos.map((t) => (t.id === updated.id ? updated : t)));
+      setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     } catch (e) {
       setError(e.message);
     }
