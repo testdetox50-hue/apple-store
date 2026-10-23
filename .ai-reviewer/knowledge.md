@@ -1,26 +1,27 @@
 # apple-store reviewer notes
 
 ## Architecture
-This is a small full-stack Todo application with a FastAPI backend and a Vite/React frontend. The backend exposes `/api/todos` CRUD endpoints plus `/api/stats`, storing todos in process memory; the frontend calls relative `/api` URLs and relies on Vite’s development proxy. Backend tests use FastAPI’s `TestClient` and pytest.
+This is a small full-stack todo application with a FastAPI backend and Vite/React frontend. The backend exposes `/api/todos` CRUD endpoints plus `/api/stats`, storing `Todo` models in process memory (`backend/main.py`). The frontend calls the same `/api` paths through a Vite development proxy (`frontend/vite.config.js`) and keeps the current todo list in React state.
 
 ## Conventions
-- Backend API models are defined as Pydantic classes in `backend/main.py`: `TodoCreate`, `TodoUpdate`, and `Todo`; response models are declared directly on route decorators.
-- Todo titles are normalized and validated through the shared `clean_title()` helper in `backend/main.py`: whitespace is stripped, empty values return HTTP 400, and length is limited by `MAX_TITLE_LENGTH` from `backend/config.py`.
-- Missing resources consistently raise `HTTPException(status_code=404, detail="Todo not found")` in update and delete handlers.
-- API routes use the `/api` prefix (`backend/main.py`), and frontend API access is centralized in `frontend/src/api.js` rather than calling `fetch` from components.
-- React state updates are immutable and functional where needed, for example `setTodos((prev) => prev.map(...))` and filtering in `frontend/src/App.jsx`.
-- Components use `.jsx` files and default exports (`frontend/src/App.jsx`, `frontend/src/TodoItem.jsx`); application bootstrap and `React.StrictMode` are in `frontend/src/main.jsx`.
-- Frontend errors are surfaced from API failures through the shared `request()` helper and displayed by `App` as `<p className="error">`.
-- Tests clear the shared todo dictionary before each test via the autouse fixture in `backend/test_main.py`; validation behavior is tested for both creation and updates.
+- Backend API models are Pydantic classes in `backend/main.py`: use separate `TodoCreate`, `TodoUpdate`, and `Todo` models rather than accepting arbitrary dictionaries.
+- Todo titles must be normalized and validated through `clean_title()` in `backend/main.py`: trim whitespace, reject empty values with HTTP 400, and enforce `MAX_TITLE_LENGTH` from `backend/config.py` (200 characters).
+- Missing resources use `HTTPException` with status 404 and detail `"Todo not found"` in update/delete handlers.
+- Collection endpoints use `/api/todos`; statistics are exposed separately at `/api/stats`, matching the API table in `README.md`.
+- Successful creation returns HTTP 201, deletion returns 204, and response shapes are declared with FastAPI `response_model` where applicable (`backend/main.py`).
+- Frontend API access is centralized in `frontend/src/api.js`; components should call its exported functions rather than using `fetch` directly.
+- React state updates preserve immutable patterns, such as mapping the updated todo or filtering deleted IDs in `frontend/src/App.jsx`.
+- `TodoItem` receives data and callbacks from `App` and uses `todo.id` as its list key (`frontend/src/TodoItem.jsx`).
+- Backend tests use `TestClient(main.app)` and clear the global todo store automatically before each test (`backend/test_main.py`).
 
 ## Intentional non-standard choices
-- Persistence is deliberately in-memory: `todos` and the ID counter live in `backend/main.py`, and all data resets when the server restarts.
-- The frontend calculates the remaining count locally in `frontend/src/App.jsx` instead of consuming the backend’s `/api/stats` endpoint.
-- `frontend/src/api.js` always sends `Content-Type: application/json`, including requests such as DELETE that have no body; this is part of the shared request wrapper.
+- Persistence is intentionally in-memory: `todos` and `_ids` in `backend/main.py` reset with the server, as documented in `README.md`; do not flag the absence of a database for this app.
+- The frontend computes the remaining count locally in `App.jsx` instead of consuming `/api/stats`; the stats endpoint is independently tested as a backend API.
+- The CORS middleware allows all methods and headers while restricting origins via `ALLOWED_ORIGINS` (`backend/main.py`, `backend/config.py`).
 
 ## Watch out for
-- Do not introduce frontend calls to `http://localhost:8000` directly; use relative `/api` paths so the Vite proxy and deployed routing remain usable (`frontend/src/api.js`, `frontend/vite.config.js`).
-- Preserve title cleaning on both POST and PATCH. Bypassing `clean_title()` would make create/update validation inconsistent (`backend/main.py`).
-- Avoid mutating React arrays or todo objects in place; existing handlers replace arrays using `map`, `filter`, and spread operations (`frontend/src/App.jsx`).
-- Changes to the in-memory store must account for process restarts and test isolation. Tests clear `main.todos`, but they do not reset `_ids` (`backend/test_main.py`).
-- Keep CORS origins configurable through `ALLOWED_ORIGINS` (`backend/config.py`) rather than hard-coding additional production origins in `backend/main.py`.
+- Bypassing `clean_title()` in either create or update paths would allow whitespace-only or overlong titles and violate tests in `backend/test_main.py`.
+- PATCH handling must preserve omitted fields: `TodoUpdate` uses optional values, and updates should only assign fields that are not `None`.
+- Do not return a JSON body from DELETE; the client explicitly treats status 204 as `null` in `frontend/src/api.js`.
+- Preserve API error details: the frontend displays `body.detail`, so replacing structured FastAPI errors with incompatible responses can degrade UI error handling.
+- Changes to backend routes or frontend API paths must account for the `/api` proxy configured in `frontend/vite.config.js`.
